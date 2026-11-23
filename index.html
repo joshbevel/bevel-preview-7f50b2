@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bevel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bevel">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#b4d3ec">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/pwa/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/pwa/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600&family=Inter:wght@500;600&display=swap">
+<style>
+  :root { color-scheme: light; --ink: #222326; --ink-3: #8b8c8f; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+  body { background: #f7f7fb; color: var(--ink); font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+  .sky { position: fixed; inset: 0; background:
+    radial-gradient(90% 45% at 85% 4%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #b4d3ec 0%, #d3e3f2 34%, #eef2f8 58%, #f7f7fb 76%); }
+  .wrap { position: relative; height: 100%; display: flex; flex-direction: column; align-items: stretch;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 32px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+  .logo { display: block; margin: 0 auto; width: 100px; height: 23px; }
+  form { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding-bottom: 12vh;
+    opacity: 0; transform: translateY(8px); transition: opacity 400ms ease, transform 600ms cubic-bezier(0.23, 1, 0.32, 1); pointer-events: none; }
+  body.ask form { opacity: 1; transform: none; pointer-events: auto; }
+  h1 { margin: 0 0 12px; font-family: 'Archivo', 'Inter', sans-serif; font-weight: 600; font-size: 32px; line-height: 1.1; letter-spacing: -0.64px; text-align: center; }
+  input { width: 100%; height: 56px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.86); box-shadow: 0 2px 15px rgba(71, 71, 71, 0.10);
+    padding: 0 20px; font: 600 17px/1 'Inter', -apple-system, sans-serif; letter-spacing: 0.12em; text-align: center; color: var(--ink); outline: none;
+    -webkit-user-select: text; user-select: text; -webkit-appearance: none; appearance: none; }
+  input::placeholder { color: var(--ink-3); letter-spacing: 0; font-weight: 500; }
+  button { height: 56px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font: 600 17px/1 'Inter', -apple-system, sans-serif; cursor: pointer;
+    transition: transform 120ms ease, opacity 200ms ease; }
+  button:active { transform: scale(0.98); }
+  button[disabled] { opacity: 0.6; }
+  .err { min-height: 20px; margin: 0; font-size: 14px; font-weight: 500; text-align: center; color: #c9473f; }
+  form.shake input { animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+  @keyframes shake { 15%, 85% { transform: translateX(-2px); } 30%, 70% { transform: translateX(5px); } 45% { transform: translateX(-7px); } 60% { transform: translateX(7px); } }
+</style>
+</head>
+<body>
+<div class="sky"></div>
+<div class="wrap">
+  <img class="logo" src="assets/pwa/bevel-logo.svg" alt="Bevel" width="100" height="23">
+  <form autocomplete="off" novalidate>
+    <h1>Enter password</h1>
+    <input type="text" name="pw" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="Password" aria-label="Password">
+    <button type="submit">Continue</button>
+    <p class="err" role="alert"></p>
+  </form>
+</div>
+<script>
+(() => {
+  const CFG = {"v":"6a1bbbfb184a","salt":"11JbLrTf4PNWP1W468LBhg==","iter":600000,"check":{"iv":"96UYDFv1Q+secrbf","ct":"dFzxMwz72KaP5/mgrebAgCIqoKoI"}};
+  const CACHE = 'bevel-proto-app';
+  const $ = (s) => document.querySelector(s);
+  const b64d = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const b64e = (u) => btoa(String.fromCharCode.apply(null, u));
+  const norm = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const appURL = (p) => new URL('app/' + p, location.href).href;
+
+  const swReady = ('serviceWorker' in navigator)
+    ? navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready)
+    : Promise.reject(new Error('no-sw'));
+  swReady.catch(() => {});
+  let bundle = null;
+  const getBundle = () => bundle || (bundle = fetch('bundle.bin?v=' + CFG.v, { cache: 'no-cache' })
+    .then((r) => { if (!r.ok) throw new Error('bundle ' + r.status); return r.arrayBuffer(); }));
+
+  const aesKey = (raw) => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  async function derive(pw) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(norm(pw)), 'PBKDF2', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64d(CFG.salt), iterations: CFG.iter }, base, 256));
+  }
+  async function keyOk(raw) {
+    try { await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(CFG.check.iv) }, await aesKey(raw), b64d(CFG.check.ct)); return true; }
+    catch (e) { return false; }
+  }
+  async function install(raw) {
+    const buf = new Uint8Array(await getBundle());
+    const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.subarray(0, 12) }, await aesKey(raw), buf.subarray(12)));
+    const n = new DataView(plain.buffer, plain.byteOffset, 4).getUint32(0);
+    const list = JSON.parse(new TextDecoder().decode(plain.subarray(4, 4 + n)));
+    const data = plain.subarray(4 + n);
+    await caches.delete(CACHE);
+    const cache = await caches.open(CACHE);
+    await Promise.all(list.map((f) => cache.put(appURL(f.p), new Response(data.slice(f.o, f.o + f.l), { headers: { 'Content-Type': f.t } }))));
+    try { localStorage.setItem('bp-key', b64e(raw)); localStorage.setItem('bp-ver', CFG.v); } catch (e) { /* private mode: ask again next time */ }
+  }
+  async function enter() { await swReady; location.replace('app/' + (location.hash || '')); }
+  async function installed() {
+    try { return (await caches.has(CACHE)) && !!(await (await caches.open(CACHE)).match(appURL('index.html'))); } catch (e) { return false; }
+  }
+
+  const form = $('form'), input = $('input'), btn = $('button'), err = $('.err');
+  function ask(msg) {
+    document.body.classList.add('ask'); getBundle().catch(() => {});
+    if (msg) { err.textContent = msg; form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
+  }
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (btn.disabled || !norm(input.value)) return;
+    btn.disabled = true; btn.textContent = 'Unlocking…'; err.textContent = '';
+    try {
+      const raw = await derive(input.value);
+      if (!(await keyOk(raw))) { btn.disabled = false; btn.textContent = 'Continue'; return ask('Wrong password'); }
+      await install(raw);
+      input.blur();
+      await enter();
+    } catch (x) {
+      console.error(x);
+      btn.disabled = false; btn.textContent = 'Continue';
+      ask(x && x.message === 'no-sw' ? 'Open this link in Safari' : 'Something went wrong. Try again.');
+    }
+  });
+
+  (async () => {
+    let stored = null;
+    try { stored = localStorage.getItem('bp-key'); } catch (e) { /* ignore */ }
+    if (stored) {
+      try {
+        const raw = b64d(stored);
+        if (localStorage.getItem('bp-ver') === CFG.v && (await installed())) return await enter();
+        if (await keyOk(raw)) { await install(raw); return await enter(); }
+        localStorage.removeItem('bp-key');
+      } catch (x) { console.error(x); }
+    }
+    ask();
+  })();
+})();
+</script>
+</body>
+</html>
